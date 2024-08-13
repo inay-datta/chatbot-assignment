@@ -3,9 +3,12 @@ from redis import Redis
 from pymongo import MongoClient
 from datetime import datetime
 from functools import wraps
+import secrets
 
 app = Flask(__name__)
 
+# Generate a random secret key
+app.secret_key = secrets.token_hex(16)
 
 # Configure Redis
 redis_client = Redis(host='172.17.0.3', port=6379, decode_responses=True)
@@ -60,13 +63,18 @@ def login():
     username = request.json.get('username')
     password = request.json.get('password')
     
-    if not authenticate(username, password):
+    # Fetch the user from MongoDB
+    user = users_collection.find_one({'username': username})
+    
+    if not user or user['password'] != password:
         return jsonify({'error': 'Unauthorized'}), 401
     
+    # Set session variables if authentication is successful
     session['username'] = username
     session['chat_id'] = datetime.utcnow().strftime('%Y%m%d%H%M%S')  # Unique chat ID based on timestamp
 
     return jsonify({'status': 'Logged in successfully'}), 200
+
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -127,4 +135,4 @@ def logout():
     return jsonify({'status': 'Logged out and conversation saved.'}), 200
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000, debug=True)
+    app.run(host='0.0.0.0', port=4002, debug=True)
